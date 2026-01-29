@@ -3,9 +3,6 @@
   "outputDirectory": ".next",
   "installCommand": "bun install",
   "framework": "nextjs",
-  "env": {
-    "NEXTAUTH_URL": "@nextauth_url"
-  },
   "functions": {
     "src/app/api/auth/[...nextauth]/route.ts": {
       "maxDuration": 30

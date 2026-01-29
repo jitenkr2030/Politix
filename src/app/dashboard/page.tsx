@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
+import Link from 'next/link'
 import MobileAppDemo from '@/components/mobile-app-demo'
 import { 
   BarChart3, 
@@ -52,6 +53,8 @@ export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop')
   const isMobile = useIsMobile()
+  const [userType, setUserType] = useState('campaign')
+  const pathname = usePathname()
 
   useEffect(() => {
     if (status === 'loading') return // Still loading
@@ -59,6 +62,11 @@ export default function DashboardPage() {
       router.push('/auth/signin')
     }
   }, [session, status, router])
+
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('userType') : null
+    if (stored) setUserType(stored)
+  }, [])
 
   if (status === 'loading') {
     return (
@@ -114,21 +122,22 @@ export default function DashboardPage() {
     )
   }
 
-  const navigation = [
-    { name: 'Dashboard', icon: Home, href: '#', current: true },
-    { name: 'Party Management', icon: Users, href: '#', current: false, badge: 'New' },
-    { name: 'Voter Analysis', icon: UserCheck, href: '#', current: false },
-    { name: 'Politician Hub', icon: Star, href: '#', current: false },
-    { name: 'Constituent Engagement', icon: MessageSquare, href: '#', current: false },
-    { name: 'Policy Impact', icon: FileText, href: '#', current: false },
-    { name: 'Campaign Manager', icon: Megaphone, href: '#', current: false, badge: 'AI' },
-    { name: 'Events', icon: Calendar, href: '#', current: false },
-    { name: 'AI Insights', icon: Brain, href: '#', current: false },
-    { name: 'Media Monitor', icon: Eye, href: '#', current: false },
-    { name: 'Compliance', icon: Shield, href: '#', current: false },
-    { name: 'Collaboration', icon: Target, href: '#', current: false },
-    { name: 'Settings', icon: Settings, href: '#', current: false },
+  const allNavigation = [
+    { name: 'Dashboard', icon: Home, href: '/dashboard', roles: ['campaign','party','politician'] },
+    { name: 'Party Management', icon: Users, href: '/dashboard/party-management', roles: ['party','campaign'], badge: 'New' },
+    { name: 'Voter Analysis', icon: UserCheck, href: '/dashboard/voter-analysis', roles: ['campaign','party'] },
+    { name: 'Politician Hub', icon: Star, href: '/dashboard/politician-hub', roles: ['politician'] },
+    { name: 'Constituent Engagement', icon: MessageSquare, href: '/dashboard/constituent-engagement', roles: ['campaign','politician','party'] },
+    { name: 'Policy Impact', icon: FileText, href: '/dashboard/policy-impact', roles: ['campaign','party'] },
+    { name: 'Campaign Manager', icon: Megaphone, href: '/dashboard/campaign-manager', roles: ['campaign'], badge: 'AI' },
+    { name: 'Events', icon: Calendar, href: '/dashboard/events', roles: ['politician','campaign','party'] },
+    { name: 'AI Insights', icon: Brain, href: '/dashboard/ai-insights', roles: ['campaign','party','politician'] },
+    { name: 'Media Monitor', icon: Eye, href: '/dashboard/media-monitor', roles: ['campaign','politician'] },
+    { name: 'Compliance', icon: Shield, href: '/dashboard/compliance', roles: ['party'] },
+    { name: 'Collaboration', icon: Target, href: '/dashboard/collaboration', roles: ['campaign','party','politician'] },
+    { name: 'Settings', icon: Settings, href: '/dashboard/settings', roles: ['campaign','party','politician'] },
   ]
+  const navigation = allNavigation.filter(item => item.roles.includes(userType))
 
   const stats = [
     { name: 'Total Voters', value: '2.4M', change: '+12.3%', icon: Users, color: 'text-blue-600' },
@@ -185,25 +194,29 @@ export default function DashboardPage() {
         
         <nav className="mt-6 px-3">
           <div className="space-y-1">
-            {navigation.map((item) => (
-              <a
-                key={item.name}
-                href={item.href}
-                className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  item.current
-                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
-                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
-                <span className="flex-1">{item.name}</span>
-                {item.badge && (
-                  <Badge variant={item.badge === 'AI' ? 'default' : 'secondary'} className="text-xs">
-                    {item.badge}
-                  </Badge>
-                )}
-              </a>
-            ))}
+            {navigation.map((item) => {
+              const isCurrent = pathname === item.href
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    isCurrent
+                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                  onClick={() => isMobile && setSidebarOpen(false)}
+                >
+                  <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
+                  <span className="flex-1">{item.name}</span>
+                  {item.badge && (
+                    <Badge variant={item.badge === 'AI' ? 'default' : 'secondary'} className="text-xs">
+                      {item.badge}
+                    </Badge>
+                  )}
+                </Link>
+              )
+            })}
           </div>
         </nav>
 
