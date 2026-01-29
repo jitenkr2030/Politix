@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSession, signOut } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import MobileAppDemo from '@/components/mobile-app-demo'
 import { 
   BarChart3, 
@@ -33,7 +35,8 @@ import {
   CheckCircle,
   XCircle,
   Smartphone,
-  Monitor
+  Monitor,
+  LogOut
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -44,9 +47,33 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useIsMobile } from '@/hooks/use-mobile'
 
 export default function DashboardPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop')
   const isMobile = useIsMobile()
+
+  useEffect(() => {
+    if (status === 'loading') return // Still loading
+    if (!session) {
+      router.push('/auth/signin')
+    }
+  }, [session, status, router])
+
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!session) {
+    return null // Will redirect
+  }
 
   // Auto-switch to mobile view on small screens
   if (isMobile && viewMode === 'desktop') {
@@ -181,14 +208,26 @@ export default function DashboardPage() {
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t">
-          <div className="flex items-center">
-            <div className="w-8 h-8 bg-gradient-to-r from-green-600 to-blue-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-sm font-medium">JD</span>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center">
+              <div className="w-8 h-8 bg-gradient-to-r from-green-600 to-blue-600 rounded-full flex items-center justify-center">
+                <span className="text-white text-sm font-medium">
+                  {session.user?.name?.charAt(0).toUpperCase() || 'U'}
+                </span>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-900">{session.user?.name || 'User'}</p>
+                <p className="text-xs text-gray-500">{session.user?.email}</p>
+              </div>
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-900">John Doe</p>
-              <p className="text-xs text-gray-500">Campaign Manager</p>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+              className="text-gray-500 hover:text-red-600"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </div>
@@ -265,7 +304,9 @@ export default function DashboardPage() {
 
             {/* Welcome Section */}
             <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900">Welcome back, John</h1>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Welcome back, {session.user?.name || 'User'}
+              </h1>
               <p className="mt-2 text-gray-600">Here's what's happening with your political campaigns today.</p>
             </div>
 

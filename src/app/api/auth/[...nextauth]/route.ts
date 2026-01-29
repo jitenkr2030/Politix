@@ -14,12 +14,12 @@ const handler = NextAuth({
           return null
         }
 
-        // For demo purposes, we'll create a mock user
+        // For demo purposes, accept any email/password combination
         // In production, you'd verify against your database
         const user = {
           id: 'demo-user-id',
           email: credentials.email,
-          name: 'John Doe',
+          name: credentials.email.split('@')[0].replace('.', ' ').replace(/\b\w/g, l => l.toUpperCase()),
           role: 'CAMPAIGN_MANAGER'
         }
 
@@ -40,15 +40,16 @@ const handler = NextAuth({
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.sub
-        session.user.role = token.role
+        session.user.id = token.sub || ''
+        session.user.role = token.role || 'USER'
       }
       return session
     }
   },
   session: {
     strategy: 'jwt'
-  }
+  },
+  secret: process.env.NEXTAUTH_SECRET || 'fallback-secret-for-development'
 })
 
 export { handler as GET, handler as POST }

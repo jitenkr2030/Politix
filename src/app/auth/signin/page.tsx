@@ -30,13 +30,17 @@ export default function SignInPage() {
         redirect: false
       })
 
-      if (result?.ok) {
+      if (result?.error) {
+        console.error('Sign in error:', result.error)
+        alert('Invalid credentials. Please try again.')
+      } else if (result?.ok) {
         // Store user type in localStorage for demo purposes
         localStorage.setItem('userType', userType)
         router.push('/dashboard')
       }
     } catch (error) {
       console.error('Sign in error:', error)
+      alert('An error occurred. Please try again.')
     } finally {
       setIsLoading(false)
     }
