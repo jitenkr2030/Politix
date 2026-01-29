@@ -1,5 +1,7 @@
 import Link from 'next/link'
 
+import Link from "next/link";
+
 export default function DashboardSectionPage({ params }: { params: { section: string } }) {
   const sections: Record<string, string> = {
     'party-management': 'Party Management',

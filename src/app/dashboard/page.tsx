@@ -84,9 +84,11 @@ export default function DashboardPage() {
   }
 
   // Auto-switch to mobile view on small screens
-  if (isMobile && viewMode === 'desktop') {
-    setViewMode('mobile')
-  }
+  useEffect(() => {
+    if (isMobile && viewMode === 'desktop') {
+      setViewMode('mobile')
+    }
+  }, [isMobile, viewMode])
 
   // Show mobile demo if in mobile mode
   if (viewMode === 'mobile') {
