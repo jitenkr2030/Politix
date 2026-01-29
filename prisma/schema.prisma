@@ -1,0 +1,897 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  name              String?
+  avatar            String?
+  role              UserRole @default(STAFF)
+  isActive          Boolean  @default(true)
+  lastLoginAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  party             Party?
+  politician        Politician?
+  campaignStaff     CampaignStaff[]
+  partyMembers      PartyMember[]
+  interactions      Interaction[]
+  policyFeedback    PolicyFeedback[]
+  complianceRecords ComplianceRecord[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  comments          Comment[]
+  tasks             Task[]
+  eventAttendees    EventAttendee[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  PARTY_LEADER
+  POLITICIAN
+  CAMPAIGN_MANAGER
+  STAFF
+  VOLUNTEER
+  ANALYST
+}
+
+// Party Management
+model Party {
+  id                String   @id @default(cuid())
+  name              String
+  abbreviation      String?
+  description       String?
+  logo              String?
+  color             String?
+  foundedAt         DateTime?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  leaderId          String?   @unique
+  leader            User?    @relation(fields: [leaderId], references: [id])
+  politicians       Politician[]
+  campaigns         Campaign[]
+  members           PartyMember[]
+  policies          Policy[]
+  events            Event[]
+  complianceRecords ComplianceRecord[]
+
+  @@map("parties")
+}
+
+model PartyMember {
+  id                String   @id @default(cuid())
+  partyId           String
+  userId            String
+  membershipType    MembershipType
+  joinedAt          DateTime @default(now())
+  isActive          Boolean  @default(true)
+  votingHistory     Json?    // Store voting patterns
+  engagementScore   Float    @default(0)
+  donationHistory   Json?    // Store donation data
+  volunteerHours    Int      @default(0)
+
+  // Relations
+  party             Party    @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([partyId, userId])
+  @@map("party_members")
+}
+
+enum MembershipType {
+  REGULAR
+  PREMIUM
+  LIFETIME
+  HONORARY
+}
+
+// Politician Management
+model Politician {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  partyId           String
+  firstName         String
+  lastName          String
+  title             String?
+  position          String?
+  district          String?
+  state             String?
+  country           String?
+  bio               String?
+  photo             String?
+  dateOfBirth       DateTime?
+  isActive          Boolean  @default(true)
+  approvalRating    Float?
+  socialMedia       Json?    // Store social media links and stats
+  contactInfo       Json?    // Store contact details
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  party             Party    @relation(fields: [partyId], references: [id])
+  campaigns         Campaign[]
+  schedules         Schedule[]
+  constituents      Constituent[]
+  policies          Policy[]
+  events            Event[]
+  mediaAppearances  MediaAppearance[]
+
+  @@map("politicians")
+}
+
+model Schedule {
+  id                String   @id @default(cuid())
+  politicianId      String
+  title             String
+  description       String?
+  startTime         DateTime
+  endTime           DateTime
+  location          String?
+  type              ScheduleType
+  status            ScheduleStatus @default(SCHEDULED)
+  isPublic          Boolean  @default(false)
+  attendeesCount    Int      @default(0)
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  politician        Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+
+  @@map("schedules")
+}
+
+enum ScheduleType {
+  MEETING
+  CAMPAIGN_EVENT
+  PUBLIC_APPEARANCE
+  INTERVIEW
+  FUNDRAISING
+  CONSTITUENT_VISIT
+  DEBATE
+  OTHER
+}
+
+enum ScheduleStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  POSTPONED
+}
+
+// Voter Management
+model Voter {
+  id                String   @id @default(cuid())
+  firstName         String
+  lastName          String
+  email             String?  @unique
+  phone             String?
+  dateOfBirth       DateTime?
+  address           String?
+  city              String?
+  state             String?
+  zipCode           String?
+  country           String?
+  voterId           String?  @unique
+  registrationDate  DateTime?
+  votingHistory     Json?    // Store past voting behavior
+  demographics      Json?    // Age, gender, ethnicity, education, income
+  politicalLeanings String?  // Liberal, Conservative, Moderate, etc.
+  engagementLevel   Float    @default(0) // 0-100 engagement score
+  lastContacted     DateTime?
+  preferredContact  String?  // Email, Phone, SMS, Mail
+  isRegistered      Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  voterSegments     VoterSegment[]
+  constituent       Constituent?
+  interactions      Interaction[]
+  surveyResponses   SurveyResponse[]
+  eventAttendees    EventAttendee[]
+  policyFeedback    PolicyFeedback[]
+
+  @@map("voters")
+}
+
+model VoterSegment {
+  id                String   @id @default(cuid())
+  name              String
+  description       String?
+  criteria          Json     // Segmentation criteria
+  voterCount        Int      @default(0)
+  avgEngagement     Float    @default(0)
+  priority          SegmentPriority @default(MEDIUM)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  voters            Voter[]
+
+  @@map("voter_segments")
+}
+
+enum SegmentPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+// Constituent Management
+model Constituent {
+  id                String   @id @default(cuid())
+  voterId           String   @unique
+  politicianId      String
+  relationshipType  String?  // Supporter, Opponent, Undecided
+  priority          ConstituentPriority @default(MEDIUM)
+  lastInteraction   DateTime?
+  interactionCount  Int      @default(0)
+  sentimentScore    Float?   // -1 to 1 sentiment analysis
+  notes             String?
+  tags              String? // JSON string for custom tags
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  voter             Voter     @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  politician        Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+  interactions      Interaction[]
+  cases             Case[]
+
+  @@map("constituents")
+}
+
+enum ConstituentPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model Interaction {
+  id                String   @id @default(cuid())
+  constituentId     String
+  voterId           String?  // If interaction is with a voter directly
+  type              InteractionType
+  channel           String   // Email, Phone, Social Media, In-Person
+  subject           String?
+  content           String
+  sentiment         Float?   // Sentiment analysis result
+  outcome           String?
+  nextAction        String?
+  followUpDate      DateTime?
+  userId            String?  // Staff member who handled it
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  constituent       Constituent @relation(fields: [constituentId], references: [id], onDelete: Cascade)
+  voter             Voter?      @relation(fields: [voterId], references: [id])
+  user              User?       @relation(fields: [userId], references: [id])
+
+  @@map("interactions")
+}
+
+enum InteractionType {
+  INQUIRY
+  COMPLAINT
+  SUPPORT
+  FEEDBACK
+  REQUEST
+  THANK_YOU
+  OTHER
+}
+
+// Campaign Management
+model Campaign {
+  id                String   @id @default(cuid())
+  name              String
+  description       String?
+  type              CampaignType
+  status            CampaignStatus @default(PLANNING)
+  startDate         DateTime
+  endDate           DateTime?
+  budget            Float?
+  targetAudience    Json?    // Target demographic data
+  goals             Json?    // Campaign objectives and KPIs
+  progress          Float    @default(0) // 0-100 completion
+  isActive          Boolean  @default(true)
+  partyId           String?
+  politicianId      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  party             Party?         @relation(fields: [partyId], references: [id])
+  politician        Politician?    @relation(fields: [politicianId], references: [id])
+  staff             CampaignStaff[]
+  events            Event[]
+  resources         CampaignResource[]
+  metrics           CampaignMetric[]
+  tasks             Task[]
+  complianceRecords ComplianceRecord[]
+
+  @@map("campaigns")
+}
+
+enum CampaignType {
+  ELECTORAL
+  FUNDRAISING
+  AWARENESS
+  ISSUE_BASED
+  REELECTION
+  PRIMARY
+  GENERAL
+  SPECIAL
+}
+
+enum CampaignStatus {
+  PLANNING
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+model CampaignStaff {
+  id                String   @id @default(cuid())
+  campaignId        String
+  userId            String
+  role              String
+  responsibilities  String? // JSON string for responsibilities
+  startDate         DateTime
+  endDate           DateTime?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, userId])
+  @@map("campaign_staff")
+}
+
+model CampaignResource {
+  id                String   @id @default(cuid())
+  campaignId        String
+  name              String
+  type              ResourceType
+  description       String?
+  url               String?
+  fileUrl           String?
+  cost              Float?
+  quantity          Int?
+  allocatedTo       String?
+  status            ResourceStatus @default(AVAILABLE)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("campaign_resources")
+}
+
+enum ResourceType {
+  BUDGET
+  STAFF
+  EQUIPMENT
+  VENUE
+  MARKETING_MATERIAL
+  DIGITAL_ASSET
+  TRANSPORTATION
+  OTHER
+}
+
+enum ResourceStatus {
+  AVAILABLE
+  ALLOCATED
+  IN_USE
+  MAINTENANCE
+  DEPLETED
+}
+
+// Event Management
+model Event {
+  id                String   @id @default(cuid())
+  name              String
+  description       String?
+  type              EventType
+  status            EventStatus @default(PLANNED)
+  startTime         DateTime
+  endTime           DateTime
+  location          String?
+  isVirtual         Boolean  @default(false)
+  virtualUrl        String?
+  maxAttendees      Int?
+  currentAttendees  Int      @default(0)
+  cost              Float?
+  budget            Float?
+  partyId           String?
+  politicianId      String?
+  campaignId        String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  party             Party?      @relation(fields: [partyId], references: [id])
+  politician        Politician? @relation(fields: [politicianId], references: [id])
+  campaign          Campaign?   @relation(fields: [campaignId], references: [id])
+  attendees         EventAttendee[]
+  resources         EventResource[]
+
+  @@map("events")
+}
+
+enum EventType {
+  RALLY
+  FUNDRAISER
+  TOWN_HALL
+  DEBATE
+  PRESS_CONFERENCE
+  MEETING
+  VOLUNTEER_EVENT
+  COMMUNITY_OUTREACH
+  OTHER
+}
+
+enum EventStatus {
+  PLANNED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  POSTPONED
+}
+
+model EventAttendee {
+  id                String   @id @default(cuid())
+  eventId           String
+  userId            String?
+  voterId           String?
+  registrationDate  DateTime @default(now())
+  checkInTime       DateTime?
+  status            AttendeeStatus @default(REGISTERED)
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  event             Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user              User? @relation(fields: [userId], references: [id])
+  voter             Voter? @relation(fields: [voterId], references: [id])
+
+  @@map("event_attendees")
+}
+
+enum AttendeeStatus {
+  REGISTERED
+  CONFIRMED
+  CHECKED_IN
+  NO_SHOW
+  CANCELLED
+}
+
+model EventResource {
+  id                String   @id @default(cuid())
+  eventId           String
+  name              String
+  type              String
+  quantity          Int?
+  cost              Float?
+  vendor            String?
+  status            String   @default("REQUESTED")
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  event             Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("event_resources")
+}
+
+// Policy Management
+model Policy {
+  id                String   @id @default(cuid())
+  title             String
+  description       String?
+  category          String
+  status            PolicyStatus @default(DRAFT)
+  priority          PolicyPriority @default(MEDIUM)
+  partyId           String?
+  politicianId      String?
+  proposedDate      DateTime?
+  effectiveDate     DateTime?
+  content           String?  // Full policy text
+  summary           String?  // Executive summary
+  impact            Json?    // Predicted impact data
+  publicSupport     Float?   // Percentage support
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  party             Party?      @relation(fields: [partyId], references: [id])
+  politician        Politician? @relation(fields: [politicianId], references: [id])
+  feedback          PolicyFeedback[]
+  simulations       PolicySimulation[]
+
+  @@map("policies")
+}
+
+enum PolicyStatus {
+  DRAFT
+  PROPOSED
+  DEBATE
+  VOTE_SCHEDULED
+  PASSED
+  REJECTED
+  IMPLEMENTED
+  AMENDED
+}
+
+enum PolicyPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model PolicyFeedback {
+  id                String   @id @default(cuid())
+  policyId          String
+  voterId           String?
+  userId            String?  // Staff who handled the feedback
+  type              FeedbackType
+  rating            Int?     // 1-5 rating
+  comment           String?
+  sentiment         Float?   // Sentiment analysis
+  source            String?  // Where feedback came from
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  policy            Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  voter             Voter?  @relation(fields: [voterId], references: [id])
+  user              User?   @relation(fields: [userId], references: [id])
+
+  @@map("policy_feedback")
+}
+
+enum FeedbackType {
+  SURVEY
+  COMMENT
+  RATING
+  PETITION
+  TESTIMONY
+  OTHER
+}
+
+model PolicySimulation {
+  id                String   @id @default(cuid())
+  policyId          String
+  name              String
+  description       String?
+  parameters        Json     // Simulation parameters
+  results           Json?    // Simulation results
+  confidence        Float?   // Confidence level 0-1
+  runDate           DateTime @default(now())
+  status            SimulationStatus @default(PENDING)
+
+  // Relations
+  policy            Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@map("policy_simulations")
+}
+
+enum SimulationStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+// Media Monitoring
+model MediaAppearance {
+  id                String   @id @default(cuid())
+  politicianId      String
+  outlet            String
+  type              MediaType
+  title             String
+  content           String?
+  url               String?
+  publishDate       DateTime
+  reach             Int?     // Audience size
+  sentiment         Float?   // Sentiment analysis
+  keyTopics         String? // JSON string for extracted topics
+  impactScore       Float?   // Calculated impact
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  politician        Politician @relation(fields: [politicianId], references: [id], onDelete: Cascade)
+
+  @@map("media_appearances")
+}
+
+enum MediaType {
+  TV
+  RADIO
+  NEWSPAPER
+  ONLINE_NEWS
+  BLOG
+  SOCIAL_MEDIA
+  PODCAST
+  INTERVIEW
+  DEBATE
+  OTHER
+}
+
+// Compliance Management
+model ComplianceRecord {
+  id                String   @id @default(cuid())
+  partyId           String?
+  politicianId      String?
+  campaignId        String?
+  userId            String?  // Staff assigned to
+  type              ComplianceType
+  requirement       String
+  status            ComplianceStatus @default(PENDING)
+  dueDate           DateTime?
+  completedDate     DateTime?
+  assignedTo        String?
+  documents         Json?    // Related documents
+  notes             String?
+  riskLevel         RiskLevel @default(LOW)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  party             Party?    @relation(fields: [partyId], references: [id])
+  campaign          Campaign? @relation(fields: [campaignId], references: [id])
+  user              User?     @relation(fields: [userId], references: [id])
+
+  @@map("compliance_records")
+}
+
+enum ComplianceType {
+  FILING
+  DISCLOSURE
+  REPORTING
+  AUDIT
+  CERTIFICATION
+  PERMIT
+  OTHER
+}
+
+enum ComplianceStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+  FAILED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// Task Management
+model Task {
+  id                String   @id @default(cuid())
+  title             String
+  description       String?
+  type              TaskType
+  priority          TaskPriority @default(MEDIUM)
+  status            TaskStatus @default(TODO)
+  assignedTo        String?
+  campaignId        String?
+  dueDate           DateTime?
+  estimatedHours    Float?
+  actualHours       Float?
+  progress          Float    @default(0) // 0-100
+  tags              String? // JSON string for tags
+  dependencies      String? // JSON string for task dependencies
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  assignedUser      User?     @relation(fields: [assignedTo], references: [id])
+  campaign          Campaign? @relation(fields: [campaignId], references: [id])
+  comments          Comment[]
+  subtasks          Task[]   @relation("TaskSubtasks")
+  parentTask        Task?    @relation("TaskSubtasks", fields: [dependencies], references: [id])
+
+  @@map("tasks")
+}
+
+enum TaskType {
+  CALL
+  EMAIL
+  MEETING
+  RESEARCH
+  WRITING
+  DESIGN
+  OUTREACH
+  ANALYSIS
+  OTHER
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+model Comment {
+  id                String   @id @default(cuid())
+  taskId            String?
+  content           String
+  authorId          String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  task              Task? @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author            User  @relation(fields: [authorId], references: [id])
+
+  @@map("comments")
+}
+
+// Analytics and Metrics
+model CampaignMetric {
+  id                String   @id @default(cuid())
+  campaignId        String
+  name              String
+  value             Float
+  unit              String?
+  target            Float?
+  previousValue     Float?
+  changePercent     Float?
+  date              DateTime
+  source            String?  // Where data came from
+  createdAt         DateTime @default(now())
+
+  // Relations
+  campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("campaign_metrics")
+}
+
+model SurveyResponse {
+  id                String   @id @default(cuid())
+  voterId           String
+  surveyId          String
+  responses         Json     // Survey answers
+  satisfaction      Float?   // Overall satisfaction
+  likelihood        Float?   // Likelihood to support
+  createdAt         DateTime @default(now())
+
+  // Relations
+  voter             Voter @relation(fields: [voterId], references: [id], onDelete: Cascade)
+
+  @@map("survey_responses")
+}
+
+model Case {
+  id                String   @id @default(cuid())
+  constituentId     String
+  subject           String
+  description       String?
+  type              CaseType
+  priority          CasePriority @default(MEDIUM)
+  status            CaseStatus @default(OPEN)
+  assignedTo        String?
+  resolution        String?
+  resolvedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  constituent       Constituent @relation(fields: [constituentId], references: [id], onDelete: Cascade)
+
+  @@map("cases")
+}
+
+enum CaseType {
+  INQUIRY
+  COMPLAINT
+  SERVICE_REQUEST
+  POLICY_QUESTION
+  OTHER
+}
+
+enum CasePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum CaseStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+// Notifications
+model Notification {
+  id                String   @id @default(cuid())
+  userId            String
+  title             String
+  message           String
+  type              NotificationType
+  isRead            Boolean  @default(false)
+  data              Json?    // Additional data
+  createdAt         DateTime @default(now())
+
+  // Relations
+  user              User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  CAMPAIGN_UPDATE
+  EVENT_REMINDER
+  COMPLIANCE_DUE
+  MEDIA_ALERT
+  SYSTEM_ANNOUNCEMENT
+  OTHER
+}
+
+// Audit Logs
+model AuditLog {
+  id                String   @id @default(cuid())
+  userId            String?
+  action            String
+  resourceType      String
+  resourceId        String
+  oldValues         Json?
+  newValues         Json?
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime @default(now())
+
+  // Relations
+  user              User? @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
